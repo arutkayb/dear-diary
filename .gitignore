@@ -1,3 +1,18 @@
+# Generated diary data
+diaries/
 output/
+reflections/
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+
+# macOS
+.DS_Store
+
+# Firebase
+firebase-debug.log
+
+# Local settings
+.claude/settings.local.json

@@ -324,7 +324,10 @@ def write_output(data: dict, output_dir: str, target_date: date) -> str:
     os.makedirs(output_dir, exist_ok=True)
     out_path = os.path.join(output_dir, f"{target_date.isoformat()}.json")
     with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+        output = json.dumps(data, indent=2, ensure_ascii=False)
+        # Escape U+2028/U+2029 — literal LS/PS in JSON strings confuse editors
+        output = output.replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+        f.write(output)
         f.write("\n")
     return out_path
 
