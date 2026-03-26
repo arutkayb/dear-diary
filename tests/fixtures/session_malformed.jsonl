@@ -1,0 +1,4 @@
+{"parentUuid": null, "isSidechain": false, "promptId": "p1", "type": "user", "message": {"role": "user", "content": "First valid message"}, "isMeta": false, "uuid": "u1", "timestamp": "2026-03-25T11:00:00.000Z", "cwd": "/Users/test/project"}
+{broken json this line will fail
+{"parentUuid": "u1", "isSidechain": false, "promptId": "p1", "type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "Valid response after malformed line."}]}, "isMeta": false, "uuid": "u2", "timestamp": "2026-03-25T11:00:05.000Z", "cwd": "/Users/test/project"}
+{"incomplete": "json that ends without closing
