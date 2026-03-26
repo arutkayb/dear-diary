@@ -160,6 +160,84 @@ def filter_sessions_by_date(
     return matched
 
 
+_SKIP_TYPES = frozenset({
+    "tool_use", "tool_result", "thinking",
+    "file-history-snapshot", "progress", "last-prompt",
+})
+
+
+def _extract_text_blocks(content) -> str | None:
+    """Extract and join text from content (str or list of blocks). Returns None if no text."""
+    if isinstance(content, str):
+        text = content.strip()
+        return text if text else None
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text = block.get("text", "").strip()
+                if text:
+                    parts.append(text)
+        return "\n".join(parts) if parts else None
+    return None
+
+
+def extract_messages(session_file: str):
+    """Parse JSONL line-by-line, yielding {role, text, timestamp, cwd, git_branch}.
+
+    Skips:
+    - Messages where isMeta is truthy
+    - Messages whose type is not 'user' or 'assistant'
+    - Content blocks of type tool_use, tool_result, thinking, file-history-snapshot,
+      progress, last-prompt
+    - Messages with no text content after filtering
+    - Malformed JSON lines (warns to stderr)
+    """
+    try:
+        f = open(session_file, "r", encoding="utf-8")
+    except (OSError, PermissionError) as e:
+        print(f"WARNING: cannot open {session_file}: {e}", file=sys.stderr)
+        return
+
+    with f:
+        for lineno, line in enumerate(f, 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                msg = json.loads(line)
+            except json.JSONDecodeError as e:
+                print(
+                    f"WARNING: malformed JSON in {session_file}:{lineno}: {e}",
+                    file=sys.stderr,
+                )
+                continue
+
+            if msg.get("isMeta"):
+                continue
+
+            message_body = msg.get("message")
+            if not isinstance(message_body, dict):
+                continue
+
+            role = message_body.get("role")
+            if role not in ("user", "assistant"):
+                continue
+
+            content = message_body.get("content")
+            text = _extract_text_blocks(content)
+            if text is None:
+                continue
+
+            yield {
+                "role": role,
+                "text": text,
+                "timestamp": msg.get("timestamp"),
+                "cwd": msg.get("cwd"),
+                "git_branch": msg.get("gitBranch"),
+            }
+
+
 def build_empty_output(target_date: date) -> dict:
     """Build the output JSON structure with zero stats and empty projects list."""
     now = datetime.now().astimezone()
