@@ -54,14 +54,14 @@ Using the skeleton from Phase 0, launch Agent subagents in parallel — one per 
 First, extract each project's data to a temp file. Run these commands (one per project, can be parallel):
 
 ```
-python3 ${CLAUDE_SKILL_DIR}/extract_project.py {diary_file} my_next_niche /tmp/diary-project-my_next_niche.json
+python3 ${CLAUDE_SKILL_DIR}/extract_project.py {diary_file} my_next_niche /tmp/diary-project-my_next_niche.txt
 ```
 
 Use the exact command above as a template — only change the project query and output filename. Do NOT add shell redirects (`>`), substitutions (`$()`), `2>&1`, or any other shell constructs. The script writes the file and prints confirmation itself.
 
 Then launch each subagent with:
-- The temp file path for its project (e.g., `/tmp/diary-project-my_next_niche.json`)
-- This instruction: "Read the file at `/tmp/diary-project-{name}.json` using the Read tool with offset/limit to read in chunks. It contains a single project's diary data with sessions and messages. For each session, identify: (1) what was done/built/fixed/decided, (2) notable decisions or design choices, (3) challenges or blockers encountered, (4) outcomes and their status (shipped, in-progress, abandoned). Do NOT use Bash commands — only use the Read tool. Return a structured summary per session, then a project-level rollup."
+- The temp file path for its project (e.g., `/tmp/diary-project-my_next_niche.txt`)
+- This instruction: "Read the file at `/tmp/diary-project-{name}.txt` using the Read tool with offset/limit to read in chunks. It is a plain text file (not JSON) with sessions and messages already formatted as readable text. For each session, identify: (1) what was done/built/fixed/decided, (2) notable decisions or design choices, (3) challenges or blockers encountered, (4) outcomes and their status (shipped, in-progress, abandoned). IMPORTANT: Only use the Read tool. Do NOT use Bash, Grep, or any other tool. The file is already plain text — no parsing needed. Return a structured summary per session, then a project-level rollup."
 
 If there are more than 3 projects, analyze the top 3 by session count and note the rest briefly from the skeleton summaries.
 
