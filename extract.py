@@ -5,8 +5,10 @@ for a given date and write one structured JSON file per day to ./output/.
 """
 
 import argparse
+import json
+import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 
 def resolve_date(date_str: str | None) -> date:
@@ -85,11 +87,40 @@ def get_target_dates(args) -> list[date]:
         return [resolve_date(args.date)]
 
 
+def build_empty_output(target_date: date) -> dict:
+    """Build the output JSON structure with zero stats and empty projects list."""
+    now = datetime.now().astimezone()
+    return {
+        "date": target_date.isoformat(),
+        "extracted_at": now.isoformat(),
+        "stats": {
+            "session_count": 0,
+            "project_count": 0,
+            "message_count": 0,
+            "estimated_tokens": 0,
+        },
+        "projects": [],
+    }
+
+
+def write_output(data: dict, output_dir: str, target_date: date) -> str:
+    """Write output JSON to output_dir/YYYY-MM-DD.json. Returns the file path."""
+    os.makedirs(output_dir, exist_ok=True)
+    out_path = os.path.join(output_dir, f"{target_date.isoformat()}.json")
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    return out_path
+
+
 def main(argv=None):
     args = parse_args(argv)
     dates = get_target_dates(args)
     for d in dates:
         print(f"Extracting for: {d}", file=sys.stderr)
+        data = build_empty_output(d)
+        out_path = write_output(data, args.output_dir, d)
+        print(f"Written: {out_path}", file=sys.stderr)
     return 0
 
 
