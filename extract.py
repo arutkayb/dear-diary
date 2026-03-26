@@ -121,6 +121,45 @@ def discover_sessions(source_dir: str) -> list[dict]:
     return sessions
 
 
+def _get_session_last_timestamp(file_path: str) -> datetime | None:
+    """Return the timestamp of the last message with a timestamp field."""
+    last_ts = None
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    msg = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                ts_str = msg.get("timestamp")
+                if ts_str:
+                    try:
+                        last_ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                    except ValueError:
+                        pass
+    except (OSError, PermissionError) as e:
+        print(f"WARNING: could not read {file_path}: {e}", file=sys.stderr)
+    return last_ts
+
+
+def filter_sessions_by_date(
+    sessions: list[dict], target_date: date, local_tz
+) -> list[dict]:
+    """Return sessions whose last-activity date (in local TZ) matches target_date."""
+    matched = []
+    for session in sessions:
+        last_ts = _get_session_last_timestamp(session["file_path"])
+        if last_ts is None:
+            continue
+        local_dt = last_ts.astimezone(local_tz)
+        if local_dt.date() == target_date:
+            matched.append(session)
+    return matched
+
+
 def build_empty_output(target_date: date) -> dict:
     """Build the output JSON structure with zero stats and empty projects list."""
     now = datetime.now().astimezone()
@@ -150,8 +189,14 @@ def write_output(data: dict, output_dir: str, target_date: date) -> str:
 def main(argv=None):
     args = parse_args(argv)
     dates = get_target_dates(args)
+    source_dir = args.source_dir or os.path.expanduser("~/.claude")
+    local_tz = datetime.now().astimezone().tzinfo
+
     for d in dates:
         print(f"Extracting for: {d}", file=sys.stderr)
+        sessions = discover_sessions(source_dir)
+        matched = filter_sessions_by_date(sessions, d, local_tz)
+        print(f"  {len(matched)} session(s) found for {d}", file=sys.stderr)
         data = build_empty_output(d)
         out_path = write_output(data, args.output_dir, d)
         print(f"Written: {out_path}", file=sys.stderr)
