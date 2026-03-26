@@ -37,34 +37,10 @@ If neither exists, stop and print: `No diary found for {target_date}. Run extrac
 
 ### Extract diary skeleton
 
-Run this Bash one-liner to extract a lightweight summary (no messages):
+Run the skeleton extraction script:
 
 ```bash
-python3 -c "
-import json
-with open('{diary_file}') as f:
-    data = json.load(f)
-summary = {
-    'date': data['date'],
-    'stats': data['stats'],
-    'projects': [
-        {
-            'project': p['project'],
-            'session_count': len(p['sessions']),
-            'sessions': [
-                {
-                    'summary': s.get('summary', '')[:150],
-                    'time_range': s['time_range'],
-                    'git_branch': s.get('git_branch', '')
-                }
-                for s in p['sessions']
-            ]
-        }
-        for p in data['projects']
-    ]
-}
-print(json.dumps(summary, indent=2))
-"
+python3 ${CLAUDE_SKILL_DIR}/extract_skeleton.py {diary_file}
 ```
 
 If the diary has 0 sessions across all projects: create `./reflections/{target_date}.md` with a note ("No Claude Code sessions found for {target_date}.") and stop.
