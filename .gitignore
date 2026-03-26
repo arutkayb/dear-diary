@@ -16,3 +16,6 @@ firebase-debug.log
 
 # Local settings
 .claude/settings.local.json
+
+# Local config (contains machine-specific paths)
+config.json

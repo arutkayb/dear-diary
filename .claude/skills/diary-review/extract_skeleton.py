@@ -27,4 +27,14 @@ summary = {
     ],
 }
 
+if data.get("commits"):
+    summary["commits"] = [
+        {
+            "repo": r["repo"],
+            "commit_count": r["commit_count"],
+            "commits": [{"timestamp": c["timestamp"], "message": c["message"]} for c in r["commits"]],
+        }
+        for r in data["commits"]
+    ]
+
 print(json.dumps(summary, indent=2))

@@ -7,6 +7,7 @@ for a given date and write one structured JSON file per day to ./output/.
 import argparse
 import json
 import os
+import subprocess
 import sys
 from datetime import date, datetime, timedelta, timezone
 
@@ -60,6 +61,12 @@ def parse_args(argv=None):
         metavar="DIR",
         help="Claude storage directory (default: ~/.claude)",
     )
+    parser.add_argument(
+        "--config",
+        default=None,
+        metavar="FILE",
+        help="Configuration file (default: config.json next to this script)",
+    )
 
     args = parser.parse_args(argv)
 
@@ -85,6 +92,172 @@ def get_target_dates(args) -> list[date]:
         return result
     else:
         return [resolve_date(args.date)]
+
+
+_DEFAULT_CONFIG = {"git_commits": {"enabled": False, "additional_repos": []}}
+
+
+def load_config(config_path: str | None) -> dict:
+    """Load config from JSON file. Returns defaults if file is missing or malformed."""
+    if config_path is None:
+        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return _DEFAULT_CONFIG.copy()
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"WARNING: could not load config {config_path}: {e}", file=sys.stderr)
+        return _DEFAULT_CONFIG.copy()
+
+
+_git_root_cache: dict[str, str | None] = {}
+
+
+def _git_repo_root(path: str) -> str | None:
+    """Return the git repo root for the given path, or None if not in a git repo."""
+    if path in _git_root_cache:
+        return _git_root_cache[path]
+    try:
+        result = subprocess.run(
+            ["git", "-C", path, "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, timeout=10,
+        )
+        root = result.stdout.strip() if result.returncode == 0 else None
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        root = None
+    _git_root_cache[path] = root
+    return root
+
+
+def _collect_cwds(matched_sessions: list[dict]) -> set[str]:
+    """Return unique cwd values found in the matched session files."""
+    cwds: set[str] = set()
+    for session_meta in matched_sessions:
+        try:
+            with open(session_meta["file_path"], "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        msg = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    cwd = msg.get("cwd")
+                    if cwd:
+                        cwds.add(cwd)
+                        break  # one cwd per session is enough
+        except (OSError, PermissionError):
+            pass
+    return cwds
+
+
+def discover_repo_paths(matched_sessions: list[dict], additional_repos: list[str]) -> list[str]:
+    """Return deduplicated git repo root paths from session cwds and additional_repos config."""
+    candidates = list(_collect_cwds(matched_sessions)) + list(additional_repos)
+    roots: set[str] = set()
+    for path in candidates:
+        if not os.path.isdir(path):
+            print(f"WARNING: skipping non-existent path: {path}", file=sys.stderr)
+            continue
+        root = _git_repo_root(path)
+        if root:
+            roots.add(root)
+        else:
+            print(f"WARNING: not a git repository, skipping: {path}", file=sys.stderr)
+    return sorted(roots)
+
+
+def collect_git_commits(repo_paths: list[str], target_date: date, local_tz) -> list[dict]:
+    """Collect commits from the given repos whose author date falls on target_date (local TZ).
+
+    Returns flat list of {repo, hash, timestamp, branch, message}.
+    Deduplicates by hash across repos.
+    """
+    # Day boundaries in local timezone, formatted for git
+    day_start = datetime(target_date.year, target_date.month, target_date.day,
+                         0, 0, 0, tzinfo=local_tz)
+    day_end = day_start + timedelta(days=1)
+    start_str = day_start.isoformat()
+    end_str = day_end.isoformat()
+
+    seen_hashes: set[str] = set()
+    all_commits: list[dict] = []
+
+    for repo in repo_paths:
+        try:
+            result = subprocess.run(
+                [
+                    "git", "-C", repo, "log", "--all",
+                    f"--after={start_str}", f"--before={end_str}",
+                    "--format=%H%x00%aI%x00%D%x00%s",
+                    "--max-count=200",
+                ],
+                capture_output=True, text=True, timeout=30,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+            print(f"WARNING: git log failed for {repo}: {e}", file=sys.stderr)
+            continue
+
+        if result.returncode != 0:
+            print(f"WARNING: git log error for {repo}: {result.stderr.strip()}", file=sys.stderr)
+            continue
+
+        for raw_line in result.stdout.splitlines():
+            parts = raw_line.split("\x00", 3)
+            if len(parts) != 4:
+                continue
+            commit_hash, author_date_str, decorations, message = parts
+
+            # Filter precisely by author date in local TZ
+            try:
+                author_dt = datetime.fromisoformat(author_date_str.replace("Z", "+00:00"))
+                if author_dt.astimezone(local_tz).date() != target_date:
+                    continue
+            except ValueError:
+                continue
+
+            if commit_hash in seen_hashes:
+                continue
+            seen_hashes.add(commit_hash)
+
+            # Parse branch from decorations (e.g. "HEAD -> main, origin/main")
+            branch = ""
+            if decorations:
+                for part in decorations.split(","):
+                    part = part.strip()
+                    if part.startswith("HEAD -> "):
+                        branch = part[len("HEAD -> "):]
+                        break
+                    if part and not part.startswith("tag:"):
+                        branch = part
+
+            all_commits.append({
+                "repo": repo,
+                "hash": commit_hash,
+                "timestamp": author_date_str,
+                "branch": branch,
+                "message": message,
+            })
+
+    return all_commits
+
+
+def _group_commits_by_repo(commits: list[dict]) -> list[dict]:
+    """Group flat commit list into per-repo structure."""
+    repo_map: dict[str, list[dict]] = {}
+    for c in commits:
+        repo_map.setdefault(c["repo"], []).append({
+            "hash": c["hash"],
+            "timestamp": c["timestamp"],
+            "branch": c["branch"],
+            "message": c["message"],
+        })
+    return [
+        {"repo": repo, "commit_count": len(cs), "commits": cs}
+        for repo, cs in sorted(repo_map.items())
+    ]
 
 
 def discover_sessions(source_dir: str) -> list[dict]:
@@ -338,6 +511,10 @@ def main(argv=None):
     source_dir = args.source_dir or os.path.expanduser("~/.claude")
     local_tz = datetime.now().astimezone().tzinfo
 
+    config = load_config(args.config)
+    git_cfg = config.get("git_commits", {})
+    git_enabled = git_cfg.get("enabled", False)
+
     all_sessions = discover_sessions(source_dir)
 
     for d in dates:
@@ -345,10 +522,24 @@ def main(argv=None):
         matched = filter_sessions_by_date(all_sessions, d, local_tz)
         print(f"  {len(matched)} session(s) matched for {d}", file=sys.stderr)
         data = assemble_output(d, matched)
+
+        if git_enabled:
+            repos = discover_repo_paths(matched, git_cfg.get("additional_repos", []))
+            commits = collect_git_commits(repos, d, local_tz)
+            data["commits"] = _group_commits_by_repo(commits)
+            data["stats"]["commit_count"] = len(commits)
+            data["stats"]["repo_count"] = len(data["commits"])
+        else:
+            data["commits"] = []
+
         stats = data["stats"]
+        commit_info = (
+            f", commits={stats.get('commit_count', 0)}, repos={stats.get('repo_count', 0)}"
+            if git_enabled else ""
+        )
         print(
             f"  projects={stats['project_count']}, sessions={stats['session_count']}, "
-            f"messages={stats['message_count']}, tokens=~{stats['estimated_tokens']}",
+            f"messages={stats['message_count']}, tokens=~{stats['estimated_tokens']}{commit_info}",
             file=sys.stderr,
         )
         if not args.dry_run:

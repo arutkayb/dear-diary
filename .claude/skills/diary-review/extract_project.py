@@ -52,6 +52,18 @@ for i, session in enumerate(project["sessions"], 1):
         lines.append(f"[{role}] {text}")
         lines.append("")
 
+if data.get("commits"):
+    for repo_data in data["commits"]:
+        if project["project"].startswith(repo_data["repo"]):
+            lines.append("")
+            lines.append("=" * 60)
+            lines.append(f"## Git Commits ({repo_data['commit_count']} commits)")
+            lines.append("")
+            for c in repo_data["commits"]:
+                branch = f" [{c['branch']}]" if c.get("branch") else ""
+                lines.append(f"  {c['timestamp'][:16]}{branch} {c['message']}")
+            break
+
 with open(output_file, "w") as out:
     out.write("\n".join(lines))
 
