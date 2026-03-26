@@ -5,7 +5,7 @@ argument-hint: [YYYY-MM-DD] [--reflection]
 disable-model-invocation: true
 model: opus
 effort: max
-allowed-tools: Read, Write, Glob, Grep, Bash(python3:*), Bash(date:*), Bash(ls:*), Bash(mkdir:*), Agent
+allowed-tools: Read, Write, Glob, Grep, Bash(python3:*), Bash(date:*), Bash(ls:*), Agent
 ---
 
 ## Arguments
@@ -120,8 +120,7 @@ Read `${CLAUDE_SKILL_DIR}/output-template.md` and generate the full reflection. 
 
 ## Phase 3: Write output
 
-1. `mkdir -p ./reflections`
-2. Write the generated reflection to `./reflections/{target_date}.md`
+1. Use the Write tool to write the generated reflection to `./reflections/{target_date}.md` (the Write tool creates parent directories automatically — do NOT run mkdir)
 3. Print: `Reflection written to reflections/{target_date}.md`
 4. Print a 2-3 line summary of the key themes identified (do NOT print the full file)
 
