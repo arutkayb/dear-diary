@@ -87,6 +87,40 @@ def get_target_dates(args) -> list[date]:
         return [resolve_date(args.date)]
 
 
+def discover_sessions(source_dir: str) -> list[dict]:
+    """Scan source_dir/projects/*/*.jsonl and return session metadata dicts.
+
+    Each entry: {file_path, session_id, project_dir}
+    """
+    projects_dir = os.path.join(source_dir, "projects")
+    sessions = []
+    try:
+        project_entries = os.scandir(projects_dir)
+    except FileNotFoundError:
+        print(f"ERROR: source directory not found: {projects_dir}", file=sys.stderr)
+        sys.exit(1)
+    except PermissionError as e:
+        print(f"ERROR: permission denied accessing {projects_dir}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    for project_entry in project_entries:
+        if not project_entry.is_dir():
+            continue
+        try:
+            for file_entry in os.scandir(project_entry.path):
+                if file_entry.is_file() and file_entry.name.endswith(".jsonl"):
+                    session_id = file_entry.name[:-6]  # strip .jsonl
+                    sessions.append({
+                        "file_path": file_entry.path,
+                        "session_id": session_id,
+                        "project_dir": project_entry.name,
+                    })
+        except PermissionError as e:
+            print(f"WARNING: permission denied scanning {project_entry.path}: {e}", file=sys.stderr)
+
+    return sessions
+
+
 def build_empty_output(target_date: date) -> dict:
     """Build the output JSON structure with zero stats and empty projects list."""
     now = datetime.now().astimezone()
