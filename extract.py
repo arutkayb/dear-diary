@@ -238,19 +238,84 @@ def extract_messages(session_file: str):
             }
 
 
-def build_empty_output(target_date: date) -> dict:
-    """Build the output JSON structure with zero stats and empty projects list."""
+def assemble_output(target_date: date, matched_sessions: list[dict]) -> dict:
+    """Extract messages from matched sessions and assemble the output JSON structure.
+
+    Groups sessions by project (using cwd from messages). Each session includes
+    session_id, time_range, git_branch, summary, and messages array.
+    """
     now = datetime.now().astimezone()
+
+    # project_path -> list of session dicts
+    projects_map: dict[str, list[dict]] = {}
+
+    total_sessions = 0
+    total_messages = 0
+    total_chars = 0
+
+    for session_meta in matched_sessions:
+        messages = list(extract_messages(session_meta["file_path"]))
+        if not messages:
+            continue
+
+        # Derive project path from first message cwd, fallback to directory name
+        cwd = None
+        for m in messages:
+            if m.get("cwd"):
+                cwd = m["cwd"]
+                break
+        project_key = cwd or session_meta["project_dir"]
+
+        # Time range: first and last message timestamps
+        timestamps = [m["timestamp"] for m in messages if m.get("timestamp")]
+        time_start = timestamps[0] if timestamps else None
+        time_end = timestamps[-1] if timestamps else None
+
+        # Git branch: first message that has one
+        git_branch = None
+        for m in messages:
+            if m.get("git_branch"):
+                git_branch = m["git_branch"]
+                break
+
+        # Summary: first user message text, truncated to 200 chars
+        summary = None
+        for m in messages:
+            if m["role"] == "user":
+                summary = m["text"][:200]
+                break
+
+        session_out = {
+            "session_id": session_meta["session_id"],
+            "time_range": {"start": time_start, "end": time_end},
+            "git_branch": git_branch,
+            "summary": summary,
+            "messages": [
+                {"role": m["role"], "text": m["text"], "timestamp": m["timestamp"]}
+                for m in messages
+            ],
+        }
+
+        projects_map.setdefault(project_key, []).append(session_out)
+        total_sessions += 1
+        total_messages += len(messages)
+        total_chars += sum(len(m["text"]) for m in messages)
+
+    projects_list = [
+        {"project": proj, "sessions": sessions}
+        for proj, sessions in sorted(projects_map.items())
+    ]
+
     return {
         "date": target_date.isoformat(),
         "extracted_at": now.isoformat(),
         "stats": {
-            "session_count": 0,
-            "project_count": 0,
-            "message_count": 0,
-            "estimated_tokens": 0,
+            "session_count": total_sessions,
+            "project_count": len(projects_map),
+            "message_count": total_messages,
+            "estimated_tokens": total_chars // 4,
         },
-        "projects": [],
+        "projects": projects_list,
     }
 
 
@@ -270,14 +335,22 @@ def main(argv=None):
     source_dir = args.source_dir or os.path.expanduser("~/.claude")
     local_tz = datetime.now().astimezone().tzinfo
 
+    all_sessions = discover_sessions(source_dir)
+
     for d in dates:
         print(f"Extracting for: {d}", file=sys.stderr)
-        sessions = discover_sessions(source_dir)
-        matched = filter_sessions_by_date(sessions, d, local_tz)
-        print(f"  {len(matched)} session(s) found for {d}", file=sys.stderr)
-        data = build_empty_output(d)
-        out_path = write_output(data, args.output_dir, d)
-        print(f"Written: {out_path}", file=sys.stderr)
+        matched = filter_sessions_by_date(all_sessions, d, local_tz)
+        print(f"  {len(matched)} session(s) matched for {d}", file=sys.stderr)
+        data = assemble_output(d, matched)
+        stats = data["stats"]
+        print(
+            f"  projects={stats['project_count']}, sessions={stats['session_count']}, "
+            f"messages={stats['message_count']}, tokens=~{stats['estimated_tokens']}",
+            file=sys.stderr,
+        )
+        if not args.dry_run:
+            out_path = write_output(data, args.output_dir, d)
+            print(f"Written: {out_path}", file=sys.stderr)
     return 0
 
 
