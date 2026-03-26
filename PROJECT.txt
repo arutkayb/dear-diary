@@ -1,0 +1,78 @@
+# Dear Diary — Extraction Script PRD
+
+## Overview
+
+A Node.js or python CLI script that extracts and cleans Claude Code conversation data from local storage into structured daily JSON files. This is Stage 1 of a 3-stage pipeline (Extract → Diary → Content). The script runs standalone via cron/launchd and requires no LLM — it is pure file I/O and text processing.
+
+## Problem
+
+Claude Code stores full conversation transcripts locally as JSONL files under `~/.claude/projects/`. These files contain everything: human messages, assistant responses, tool use blocks, tool results, thinking blocks, system prompts, and metadata. A typical 8-hour workday produces 300-500k+ tokens of raw conversation data across multiple projects and sessions. This raw data is unusable for diary generation without significant filtering and restructuring.
+
+## Goal
+
+Produce a single, clean JSON file per day that contains only the meaningful conversational content from all Claude Code sessions that occurred on that date, across all projects.
+
+## Non-Goals
+
+- No LLM processing or summarization — this is a deterministic extraction step
+- No diary generation — that is Stage 2 (a separate Claude skill)
+- No content creation — that is Stage 3
+- No GUI or interactive mode — CLI only
+
+## Source Data
+
+Claude Code stores conversations in `~/.claude/`:
+- A global history index (`history.jsonl`) with prompt text, timestamps, project paths, and session IDs
+- Per-project directories under `~/.claude/projects/` containing session index files and full conversation JSONL transcripts
+
+**Important:** The exact JSONL schema must be verified by inspecting actual session files before writing extraction logic. Field names and nesting may vary from documentation.
+
+## Functional Requirements
+
+### Session Discovery
+Scan all project directories to discover sessions. Filter to only sessions whose activity falls on the target date.
+
+### Message Extraction and Cleaning
+For each matching session, parse the JSONL transcript and:
+- Keep only human and assistant messages
+- Extract only text content blocks
+- Discard: tool use/result blocks, thinking blocks, system messages
+- Preserve chronological ordering
+
+### Output Structure
+The output JSON should contain:
+- The target date and extraction timestamp
+- Basic stats (session count, project count, message count, rough token estimate)
+- Messages grouped by project, then by session
+- Each session should include: session ID, time range, auto-generated summary (from session index if available), git branch, and the filtered messages
+
+### CLI Interface
+- Default behavior: extract yesterday's conversations
+- Support extracting a specific date or date range
+- Dry run mode to preview without writing
+- Configurable output and source directories
+
+### Idempotency
+Running the script twice for the same date overwrites the previous output. No duplication, no append.
+
+## Non-Functional Requirements
+
+- **Performance:** Full day extraction (20+ sessions) under 30 seconds
+- **Error resilience:** Malformed lines, missing files, empty sessions — log warnings and continue, never crash
+- **Minimal dependencies:** Prefer Node.js or python built-ins. No LLM SDKs, no frameworks
+- **Streaming:** Parse large JSONL files line-by-line, not loaded entirely into memory
+- **Logging:** Progress and warnings to stderr
+
+## Edge Cases
+
+- Sessions spanning midnight — assign to date of last activity
+- Very large session files — streaming parser, no full-file memory accumulation
+- No sessions for target date — produce valid output with empty data, not an error
+- Concurrent writes from active Claude Code sessions — handle gracefully (incomplete last line)
+
+## Success Criteria
+
+1. Produces a valid JSON file containing all meaningful conversation content from the target day across all projects
+2. Output is small enough to fit within a single Claude context window (target: under 100k tokens for a heavy day)
+3. A Claude skill reading the output can understand what was worked on, what decisions were made, and what was accomplished
+4. Runs reliably via daily cron/launchd without manual intervention
