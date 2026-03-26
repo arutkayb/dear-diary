@@ -51,10 +51,17 @@ If the diary has 0 sessions across all projects: create `./reflections/{target_d
 
 Using the skeleton from Phase 0, launch Agent subagents in parallel — one per project, max 3 at a time, type `Explore`.
 
-Each subagent receives:
-- The diary file path
-- The project path to focus on
-- This instruction: "Read the diary file at `{diary_file}`. Find the project `{project_path}`. For each session in that project, read the messages and identify: (1) what was done/built/fixed/decided, (2) notable decisions or design choices, (3) challenges or blockers encountered, (4) outcomes and their status (shipped, in-progress, abandoned). Return a structured summary per session, then a project-level rollup."
+First, extract each project's data to a temp file using the provided script:
+
+```bash
+python3 ${CLAUDE_SKILL_DIR}/extract_project.py {diary_file} "{project_query}" > /tmp/diary-project-{safe_name}.json
+```
+
+Where `{project_query}` is a unique substring of the project path (e.g., `my_next_niche`, `AdvancedSCalendar`, `agentic-files`) and `{safe_name}` is a filesystem-safe version.
+
+Then launch each subagent with:
+- The temp file path for its project (e.g., `/tmp/diary-project-{safe_name}.json`)
+- This instruction: "Read the file at `/tmp/diary-project-{safe_name}.json`. It contains a single project's diary data with sessions and messages. For each session, identify: (1) what was done/built/fixed/decided, (2) notable decisions or design choices, (3) challenges or blockers encountered, (4) outcomes and their status (shipped, in-progress, abandoned). Use the Read tool with offset/limit to read the file in chunks — do NOT use Bash commands like grep, jq, or python. Return a structured summary per session, then a project-level rollup."
 
 If there are more than 3 projects, analyze the top 3 by session count and note the rest briefly from the skeleton summaries.
 
