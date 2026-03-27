@@ -474,10 +474,7 @@ def assemble_output(target_date: date, matched_sessions: list[dict]) -> dict:
 
     total_sessions = 0
     total_messages = 0
-    total_chars = 0
     subprocess_sessions = 0
-    subprocess_messages = 0
-    subprocess_chars = 0
 
     for session_meta in matched_sessions:
         messages = list(extract_messages(session_meta["file_path"]))
@@ -485,12 +482,9 @@ def assemble_output(target_date: date, matched_sessions: list[dict]) -> dict:
             continue
 
         msg_count = len(messages)
-        char_count = sum(len(m["text"]) for m in messages)
 
         if _is_subprocess_session(session_meta["file_path"]):
             subprocess_sessions += 1
-            subprocess_messages += msg_count
-            subprocess_chars += char_count
             continue
 
         # Derive project path from most frequent cwd, fallback to directory name
@@ -537,7 +531,6 @@ def assemble_output(target_date: date, matched_sessions: list[dict]) -> dict:
         projects_map.setdefault(project_key, []).append(session_out)
         total_sessions += 1
         total_messages += msg_count
-        total_chars += char_count
 
     projects_list = [
         {"project": proj, "sessions": sessions}
@@ -552,7 +545,6 @@ def assemble_output(target_date: date, matched_sessions: list[dict]) -> dict:
             "subprocess_session_count": subprocess_sessions,
             "project_count": len(projects_map),
             "message_count": total_messages,
-            "estimated_tokens": (total_chars + subprocess_chars) // 4,
         },
         "projects": projects_list,
     }
@@ -593,19 +585,13 @@ def main(argv=None):
             repos = discover_repo_paths(matched, git_cfg.get("additional_repos", []))
             commits = collect_git_commits(repos, d, local_tz)
             data["commits"] = _group_commits_by_repo(commits)
-            data["stats"]["commit_count"] = len(commits)
-            data["stats"]["repo_count"] = len(data["commits"])
         else:
             data["commits"] = []
 
         stats = data["stats"]
-        commit_info = (
-            f", commits={stats.get('commit_count', 0)}, repos={stats.get('repo_count', 0)}"
-            if git_enabled else ""
-        )
         print(
             f"  projects={stats['project_count']}, sessions={stats['session_count']}, "
-            f"messages={stats['message_count']}, tokens=~{stats['estimated_tokens']}{commit_info}",
+            f"messages={stats['message_count']}",
             file=sys.stderr,
         )
         if not args.dry_run:

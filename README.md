@@ -115,8 +115,7 @@ cp config.example.json config.json
   "stats": {
     "session_count": 12,
     "project_count": 3,
-    "message_count": 245,
-    "estimated_tokens": 67000
+    "message_count": 245
   },
   "projects": [
     {

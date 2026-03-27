@@ -9,7 +9,7 @@ The reflection file should follow this structure. Each section description expla
 
 ## Day Overview
 
-**{N} sessions across {N} projects · {N} messages · ~{N}k tokens**
+**{N} sessions across {N} projects · {N} messages**
 
 {2-3 sentences capturing the key themes of the day — what was the deeper "about" behind the work, not just what was done. Focus on motivations, insights, and tensions rather than listing projects or activities. E.g., "The day was about building a tool for self-awareness (dear-diary as a pride mechanism, not just logging), shipping targeted fixes informed by monitoring (Crashlytics → ANR, funnel analytics → drop-off insight), and navigating the 'euphorically exhausting' reality of agent-powered multi-project days. The IAP regression since ~4.2.0 remains an open concern." Note any unresolved concerns that carry forward.}
 
