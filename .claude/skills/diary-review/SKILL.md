@@ -1,7 +1,7 @@
 ---
 name: diary-review
-description: Reviews a daily diary JSON (from extract.py) and produces a reflection-enriched summary written to reflections/YYYY-MM-DD.md. Two modes: auto (autonomous analysis, default) and --reflection (interactive iterative Q&A). Use from the dear-diary project directory.
-argument-hint: [YYYY-MM-DD] [--reflection]
+description: Reviews a daily diary JSON (from extract.py) and produces a reflection-enriched summary written to reflections/YYYY-MM-DD.md. Two modes: reflection (interactive iterative Q&A, default) and --auto (autonomous analysis). Use from the dear-diary project directory.
+argument-hint: [YYYY-MM-DD] [--auto]
 disable-model-invocation: true
 model: opus
 effort: max
@@ -10,11 +10,11 @@ allowed-tools: Read, Write, Glob, Grep, Bash(python3:*), Bash(date:*), Bash(ls:*
 
 ## Arguments
 
-`$ARGUMENTS` — optional `YYYY-MM-DD` date and/or `--reflection` flag, e.g.:
-- `/diary-review` → auto mode, yesterday
-- `/diary-review 2026-03-25` → auto mode, specific date
-- `/diary-review --reflection` → reflection mode, yesterday
-- `/diary-review 2026-03-25 --reflection` → reflection mode, specific date
+`$ARGUMENTS` — optional `YYYY-MM-DD` date and/or `--auto` flag, e.g.:
+- `/diary-review` → reflection mode, yesterday
+- `/diary-review 2026-03-25` → reflection mode, specific date
+- `/diary-review --auto` → auto mode, yesterday
+- `/diary-review 2026-03-25 --auto` → auto mode, specific date
 
 ---
 
@@ -23,7 +23,7 @@ allowed-tools: Read, Write, Glob, Grep, Bash(python3:*), Bash(date:*), Bash(ls:*
 ### Parse arguments
 
 From `$ARGUMENTS`:
-1. Check for `--reflection` flag — set `mode = reflection` if present, else `mode = auto`
+1. Check for `--auto` flag — set `mode = auto` if present, else `mode = reflection`
 2. Check for a date string matching `YYYY-MM-DD` — use it as `target_date`
 3. If no date provided, resolve yesterday: `date -v-1d +%Y-%m-%d` (macOS) or `date -d yesterday +%Y-%m-%d` (Linux)
 
@@ -71,7 +71,7 @@ Collect all subagent results. Now you have a full picture of the day.
 
 ## Phase 2A: Auto mode
 
-*Skip to Phase 2B if `mode = reflection`.*
+*Skip to Phase 2B if `mode = reflection` (the default).*
 
 Synthesize subagent findings into the reflection output:
 

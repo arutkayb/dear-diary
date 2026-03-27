@@ -11,6 +11,7 @@ from datetime import date, datetime, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from extract import (
+    _is_subprocess_session,
     assemble_output,
     discover_sessions,
     extract_messages,
@@ -233,6 +234,65 @@ class TestAssembleOutput(unittest.TestCase):
         msgs = list(extract_messages(os.path.join(FIXTURES, "session_basic.jsonl")))
         total_chars = sum(len(m["text"]) for m in msgs)
         self.assertEqual(data["stats"]["estimated_tokens"], total_chars // 4)
+
+    def test_project_key_uses_majority_cwd(self):
+        """Session starting in parent dir but moving to subdirectory should be
+        grouped under the subdirectory (majority cwd), not the parent."""
+        session = {
+            "file_path": os.path.join(FIXTURES, "session_multi_cwd.jsonl"),
+            "session_id": "multi-cwd-session",
+            "project_dir": "workspace",
+        }
+        data = assemble_output(date(2026, 3, 25), [session])
+        self.assertEqual(len(data["projects"]), 1)
+        # 6 messages have /my-website, 2 have /workspace — majority wins
+        self.assertEqual(data["projects"][0]["project"], "/Users/test/workspace/my-website")
+
+    def test_subprocess_sessions_excluded_from_output(self):
+        """Sessions with queue-operation messages should be filtered out of projects
+        but their tokens should still be counted in estimated_tokens."""
+        human_session = {
+            "file_path": os.path.join(FIXTURES, "session_basic.jsonl"),
+            "session_id": "human-session",
+            "project_dir": "project",
+        }
+        subprocess_session = {
+            "file_path": os.path.join(FIXTURES, "session_subprocess.jsonl"),
+            "session_id": "sub-session",
+            "project_dir": "project",
+        }
+        data = assemble_output(date(2026, 3, 25), [human_session, subprocess_session])
+        self.assertEqual(data["stats"]["session_count"], 1)
+        self.assertEqual(data["stats"]["subprocess_session_count"], 1)
+        # Only the human session's messages should be in message_count
+        human_msgs = list(extract_messages(os.path.join(FIXTURES, "session_basic.jsonl")))
+        self.assertEqual(data["stats"]["message_count"], len(human_msgs))
+        # But estimated_tokens should include both human and subprocess tokens
+        sub_msgs = list(extract_messages(os.path.join(FIXTURES, "session_subprocess.jsonl")))
+        all_chars = sum(len(m["text"]) for m in human_msgs) + sum(len(m["text"]) for m in sub_msgs)
+        self.assertEqual(data["stats"]["estimated_tokens"], all_chars // 4)
+
+    def test_is_subprocess_session_detection(self):
+        """queue-operation at start → subprocess; regular messages → not subprocess."""
+        self.assertTrue(_is_subprocess_session(os.path.join(FIXTURES, "session_subprocess.jsonl")))
+        self.assertFalse(_is_subprocess_session(os.path.join(FIXTURES, "session_basic.jsonl")))
+
+    def test_project_key_falls_back_to_project_dir(self):
+        """Session with no cwd in messages should fall back to project_dir."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "no_cwd.jsonl")
+            msg = {
+                "type": "user",
+                "message": {"role": "user", "content": "hello"},
+                "isMeta": False,
+                "uuid": "u1",
+                "timestamp": "2026-03-25T10:00:00.000Z",
+            }
+            with open(path, "w") as f:
+                f.write(json.dumps(msg) + "\n")
+            session = {"file_path": path, "session_id": "no-cwd", "project_dir": "fallback-project"}
+            data = assemble_output(date(2026, 3, 25), [session])
+            self.assertEqual(data["projects"][0]["project"], "fallback-project")
 
 
 if __name__ == "__main__":

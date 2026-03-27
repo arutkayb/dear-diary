@@ -131,9 +131,14 @@ def _git_repo_root(path: str) -> str | None:
 
 
 def _collect_cwds(matched_sessions: list[dict]) -> set[str]:
-    """Return unique cwd values found in the matched session files."""
+    """Return unique cwd values found in the matched session files.
+
+    Collects the top 3 most frequent cwds per session to capture
+    significant working directories while filtering random directory jumps.
+    """
     cwds: set[str] = set()
     for session_meta in matched_sessions:
+        cwd_counts: dict[str, int] = {}
         try:
             with open(session_meta["file_path"], "r", encoding="utf-8") as f:
                 for line in f:
@@ -146,10 +151,11 @@ def _collect_cwds(matched_sessions: list[dict]) -> set[str]:
                         continue
                     cwd = msg.get("cwd")
                     if cwd:
-                        cwds.add(cwd)
-                        break  # one cwd per session is enough
+                        cwd_counts[cwd] = cwd_counts.get(cwd, 0) + 1
         except (OSError, PermissionError):
             pass
+        top_cwds = sorted(cwd_counts, key=cwd_counts.get, reverse=True)[:3]
+        cwds.update(top_cwds)
     return cwds
 
 
@@ -158,6 +164,8 @@ def discover_repo_paths(matched_sessions: list[dict], additional_repos: list[str
     candidates = list(_collect_cwds(matched_sessions)) + list(additional_repos)
     roots: set[str] = set()
     for path in candidates:
+        if _is_temp_path(path):
+            continue
         if not os.path.isdir(path):
             print(f"WARNING: skipping non-existent path: {path}", file=sys.stderr)
             continue
@@ -333,6 +341,48 @@ def filter_sessions_by_date(
     return matched
 
 
+import tempfile as _tempfile
+
+_TEMP_PREFIXES = tuple({
+    _tempfile.gettempdir(),
+    "/tmp",
+    "/private/tmp",
+    "/var/folders",
+    "/private/var/folders",
+})
+
+
+def _is_temp_path(path: str) -> bool:
+    """Return True if the path is under a known temp directory."""
+    return path.startswith(_TEMP_PREFIXES)
+
+
+def _is_subprocess_session(file_path: str) -> bool:
+    """Return True if the session is an automated subprocess (has queue-operation messages).
+
+    Subprocess/subagent sessions start with queue-operation entries before any
+    user or assistant messages. Human-initiated sessions never contain these.
+    """
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    msg = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                msg_type = msg.get("type")
+                if msg_type == "queue-operation":
+                    return True
+                if msg_type not in ("queue-operation", "file-history-snapshot"):
+                    return False
+    except (OSError, PermissionError):
+        pass
+    return False
+
+
 _SKIP_TYPES = frozenset({
     "tool_use", "tool_result", "thinking",
     "file-history-snapshot", "progress", "last-prompt",
@@ -425,19 +475,34 @@ def assemble_output(target_date: date, matched_sessions: list[dict]) -> dict:
     total_sessions = 0
     total_messages = 0
     total_chars = 0
+    subprocess_sessions = 0
+    subprocess_messages = 0
+    subprocess_chars = 0
 
     for session_meta in matched_sessions:
         messages = list(extract_messages(session_meta["file_path"]))
         if not messages:
             continue
 
-        # Derive project path from first message cwd, fallback to directory name
-        cwd = None
+        msg_count = len(messages)
+        char_count = sum(len(m["text"]) for m in messages)
+
+        if _is_subprocess_session(session_meta["file_path"]):
+            subprocess_sessions += 1
+            subprocess_messages += msg_count
+            subprocess_chars += char_count
+            continue
+
+        # Derive project path from most frequent cwd, fallback to directory name
+        cwd_counts: dict[str, int] = {}
         for m in messages:
-            if m.get("cwd"):
-                cwd = m["cwd"]
-                break
-        project_key = cwd or session_meta["project_dir"]
+            c = m.get("cwd")
+            if c:
+                cwd_counts[c] = cwd_counts.get(c, 0) + 1
+        project_key = max(cwd_counts, key=cwd_counts.get) if cwd_counts else session_meta["project_dir"]
+
+        if _is_temp_path(project_key):
+            continue
 
         # Time range: first and last message timestamps
         timestamps = [m["timestamp"] for m in messages if m.get("timestamp")]
@@ -471,8 +536,8 @@ def assemble_output(target_date: date, matched_sessions: list[dict]) -> dict:
 
         projects_map.setdefault(project_key, []).append(session_out)
         total_sessions += 1
-        total_messages += len(messages)
-        total_chars += sum(len(m["text"]) for m in messages)
+        total_messages += msg_count
+        total_chars += char_count
 
     projects_list = [
         {"project": proj, "sessions": sessions}
@@ -484,9 +549,10 @@ def assemble_output(target_date: date, matched_sessions: list[dict]) -> dict:
         "extracted_at": now.isoformat(),
         "stats": {
             "session_count": total_sessions,
+            "subprocess_session_count": subprocess_sessions,
             "project_count": len(projects_map),
             "message_count": total_messages,
-            "estimated_tokens": total_chars // 4,
+            "estimated_tokens": (total_chars + subprocess_chars) // 4,
         },
         "projects": projects_list,
     }

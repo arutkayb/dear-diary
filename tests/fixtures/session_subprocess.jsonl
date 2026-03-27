@@ -1,0 +1,4 @@
+{"type":"queue-operation","operation":"enqueue","timestamp":"2026-03-25T12:00:00.000Z","sessionId":"sub-1","content":"Classify this review as a demand signal."}
+{"type":"queue-operation","operation":"dequeue","timestamp":"2026-03-25T12:00:00.001Z","sessionId":"sub-1"}
+{"parentUuid": null, "isSidechain": false, "type": "user", "message": {"role": "user", "content": "Classify this review as a demand signal."}, "isMeta": false, "uuid": "u1", "timestamp": "2026-03-25T12:00:01.000Z", "cwd": "/Users/test/project"}
+{"parentUuid": "u1", "isSidechain": false, "type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "Classification: missing_feature, severity: 3"}]}, "isMeta": false, "uuid": "u2", "timestamp": "2026-03-25T12:00:05.000Z", "cwd": "/Users/test/project"}
