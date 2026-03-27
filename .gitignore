@@ -11,11 +11,11 @@ __pycache__/
 # macOS
 .DS_Store
 
-# Firebase
-firebase-debug.log
-
 # Local settings
 .claude/settings.local.json
 
 # Local config (contains machine-specific paths)
 config.json
+
+# Agent logs
+agent-logs/

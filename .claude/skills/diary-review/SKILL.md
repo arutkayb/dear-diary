@@ -25,7 +25,10 @@ allowed-tools: Read, Write, Glob, Grep, Bash(python3:*), Bash(date:*), Bash(ls:*
 From `$ARGUMENTS`:
 1. Check for `--auto` flag — set `mode = auto` if present, else `mode = reflection`
 2. Check for a date string matching `YYYY-MM-DD` — use it as `target_date`
-3. If no date provided, resolve yesterday: `date -v-1d +%Y-%m-%d` (macOS) or `date -d yesterday +%Y-%m-%d` (Linux)
+3. If no date provided, resolve yesterday:
+   - macOS: `date -v-1d +%Y-%m-%d`
+   - Linux: `date -d yesterday +%Y-%m-%d`
+   - Detect with: `if [[ "$OSTYPE" == "darwin"* ]]; then ... else ... fi`
 
 ### Locate the diary file
 

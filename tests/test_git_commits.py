@@ -10,11 +10,14 @@ from datetime import date, datetime, timezone, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from unittest.mock import patch
+
 from extract import (
     load_config,
     _collect_cwds,
     _git_repo_root,
     _git_root_cache,
+    _is_temp_path,
     discover_repo_paths,
     collect_git_commits,
     _group_commits_by_repo,
@@ -102,9 +105,11 @@ class TestCollectCwds(unittest.TestCase):
 
     def test_extracts_cwd_from_session(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            session = self._make_session_file(tmpdir, "/Users/rutkay/workspace/myrepo")
+            fake_cwd = os.path.join(tmpdir, "myrepo")
+            os.makedirs(fake_cwd)
+            session = self._make_session_file(tmpdir, fake_cwd)
             cwds = _collect_cwds([session])
-            self.assertIn("/Users/rutkay/workspace/myrepo", cwds)
+            self.assertIn(fake_cwd, cwds)
 
     def test_deduplicates_cwds(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -130,7 +135,8 @@ class TestDiscoverRepoPaths(unittest.TestCase):
     def setUp(self):
         _git_root_cache.clear()
 
-    def test_includes_additional_repos(self):
+    @patch("extract._is_temp_path", return_value=False)
+    def test_includes_additional_repos(self, _mock):
         with tempfile.TemporaryDirectory() as tmpdir:
             real_tmpdir = os.path.realpath(tmpdir)
             _make_git_repo(tmpdir, [{"message": "init", "date_str": "2026-03-26T10:00:00+00:00"}])
@@ -146,7 +152,8 @@ class TestDiscoverRepoPaths(unittest.TestCase):
             repos = discover_repo_paths([], [tmpdir])
             self.assertEqual(repos, [])
 
-    def test_deduplicates_repos_from_sessions_and_config(self):
+    @patch("extract._is_temp_path", return_value=False)
+    def test_deduplicates_repos_from_sessions_and_config(self, _mock):
         with tempfile.TemporaryDirectory() as tmpdir:
             real_tmpdir = os.path.realpath(tmpdir)
             _make_git_repo(tmpdir, [{"message": "init", "date_str": "2026-03-26T10:00:00+00:00"}])
