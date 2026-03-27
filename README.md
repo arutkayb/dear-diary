@@ -6,6 +6,8 @@ Turn your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) conversa
 
 Dear Diary reads raw JSONL session files from `~/.claude/projects/`, filters out noise (tool use, thinking blocks, metadata), and produces clean JSON per day. A Claude Code skill then analyzes those diaries into reflections with wins, learnings, challenges, and content seeds.
 
+See example reflections at [arutkayb.github.io/diary](https://arutkayb.github.io/diary).
+
 ## How It Works
 
 ```
@@ -178,8 +180,6 @@ dear-diary/
 ```
 
 ## Testing
-
-42 unit tests, zero external dependencies:
 
 ```bash
 python3 -m unittest discover tests/
