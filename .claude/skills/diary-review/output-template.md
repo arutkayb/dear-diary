@@ -11,7 +11,7 @@ The reflection file should follow this structure. Each section description expla
 
 **{N} sessions across {N} projects · {N} messages**
 
-{2-3 sentences capturing the key themes of the day — what was the deeper "about" behind the work, not just what was done. Focus on motivations, insights, and tensions rather than listing projects or activities. E.g., "The day was about building a tool for self-awareness (dear-diary as a pride mechanism, not just logging), shipping targeted fixes informed by monitoring (Crashlytics → ANR, funnel analytics → drop-off insight), and navigating the 'euphorically exhausting' reality of agent-powered multi-project days. The IAP regression since ~4.2.0 remains an open concern." Note any unresolved concerns that carry forward.}
+{One paragraph per project worked on, max 3 sentences each. Each paragraph should concisely describe what was done, why, and the outcome or current status — with enough context that someone unfamiliar with the project can follow. Write in plain, readable prose. Order by significance. E.g., "**dear-diary**: Built the diary extraction pipeline to automatically parse Claude conversation logs into structured diary entries. The goal was to remove the manual copy-paste step and make the review workflow fully automated. The feature shipped and is now part of the default review flow." / "**MyApp**: Investigated an ANR regression surfaced by Crashlytics and traced it to a background thread doing disk I/O on the main thread since 4.2.0. Shipped a fix and added a lint rule to catch similar patterns. The IAP regression from the same version remains open and undiagnosed."}
 
 ---
 
