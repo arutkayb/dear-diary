@@ -168,7 +168,6 @@ class TestAssembleOutput(unittest.TestCase):
         self.assertEqual(data["stats"]["session_count"], 0)
         self.assertEqual(data["stats"]["project_count"], 0)
         self.assertEqual(data["stats"]["message_count"], 0)
-        self.assertEqual(data["stats"]["estimated_tokens"], 0)
         self.assertEqual(data["projects"], [])
 
     def test_output_schema_fields_present(self):
@@ -187,8 +186,6 @@ class TestAssembleOutput(unittest.TestCase):
         self.assertIn("session_count", data["stats"])
         self.assertIn("project_count", data["stats"])
         self.assertIn("message_count", data["stats"])
-        self.assertIn("estimated_tokens", data["stats"])
-
         self.assertEqual(len(data["projects"]), 1)
         project = data["projects"][0]
         self.assertIn("project", project)
@@ -220,21 +217,6 @@ class TestAssembleOutput(unittest.TestCase):
         data = assemble_output(date(2026, 3, 25), [session])
         self.assertGreater(data["stats"]["session_count"], 0)
         self.assertGreater(data["stats"]["message_count"], 0)
-        self.assertGreater(data["stats"]["estimated_tokens"], 0)
-
-    def test_token_estimation(self):
-        """estimated_tokens = total_chars // 4"""
-        session = {
-            "file_path": os.path.join(FIXTURES, "session_basic.jsonl"),
-            "session_id": "test-session",
-            "project_dir": "project",
-        }
-        data = assemble_output(date(2026, 3, 25), [session])
-        # Manually compute expected chars
-        msgs = list(extract_messages(os.path.join(FIXTURES, "session_basic.jsonl")))
-        total_chars = sum(len(m["text"]) for m in msgs)
-        self.assertEqual(data["stats"]["estimated_tokens"], total_chars // 4)
-
     def test_project_key_uses_majority_cwd(self):
         """Session starting in parent dir but moving to subdirectory should be
         grouped under the subdirectory (majority cwd), not the parent."""
@@ -267,10 +249,6 @@ class TestAssembleOutput(unittest.TestCase):
         # Only the human session's messages should be in message_count
         human_msgs = list(extract_messages(os.path.join(FIXTURES, "session_basic.jsonl")))
         self.assertEqual(data["stats"]["message_count"], len(human_msgs))
-        # But estimated_tokens should include both human and subprocess tokens
-        sub_msgs = list(extract_messages(os.path.join(FIXTURES, "session_subprocess.jsonl")))
-        all_chars = sum(len(m["text"]) for m in human_msgs) + sum(len(m["text"]) for m in sub_msgs)
-        self.assertEqual(data["stats"]["estimated_tokens"], all_chars // 4)
 
     def test_is_subprocess_session_detection(self):
         """queue-operation at start → subprocess; regular messages → not subprocess."""
