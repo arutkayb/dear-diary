@@ -36,7 +36,13 @@ Try in order:
 1. `./diaries/{target_date}.json`
 2. `./output/{target_date}.json`
 
-If neither exists, stop and print: `No diary found for {target_date}. Run extract.py first.`
+If neither exists, run extraction automatically:
+
+```bash
+python3 extract.py --date {target_date}
+```
+
+Then use `./output/{target_date}.json` as the diary file. If extraction produces 0 sessions, continue to the skeleton step (it will handle the empty case).
 
 ### Extract diary skeleton
 
