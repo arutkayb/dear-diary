@@ -11,15 +11,17 @@ The reflection file should follow this structure. Each section description expla
 
 **{N} sessions across {N} projects · {N} messages**
 
-{One paragraph per project worked on, max 3 sentences each. Each paragraph should concisely describe what was done, why, and the outcome or current status — with enough context that someone unfamiliar with the project can follow. Write in plain, readable prose. Order by significance. E.g., "**dear-diary**: Built the diary extraction pipeline to automatically parse Claude conversation logs into structured diary entries. The goal was to remove the manual copy-paste step and make the review workflow fully automated. The feature shipped and is now part of the default review flow." / "**MyApp**: Investigated an ANR regression surfaced by Crashlytics and traced it to a background thread doing disk I/O on the main thread since 4.2.0. Shipped a fix and added a lint rule to catch similar patterns. The IAP regression from the same version remains open and undiagnosed."}
+{2-3 sentence thematic summary of the day. Not a list of projects — capture the overarching narrative, tensions, and what made this day distinctive. E.g., "A productive but firefighting-heavy day dominated by AdvancedSCalendar's rapid release cycle, with the in-app purchase revenue drop as the unresolved tension underneath. The agent vs. skill distinction crystallized into a clear mental model, and dogfooding dear-diary continues to be the best QA for the tool itself."}
+
+{One sentence per project worked on. Just the headline — what was the main thrust of work on this project today. Cover ALL projects, ordered by significance. E.g., "**dear-diary**: Open-sourced the project with CI, docs, and fixed 3 extraction accuracy bugs found through dogfooding." / "**MyApp**: Shipped a fix for the ANR regression and added a lint rule; IAP revenue drop still under investigation."}
 
 ---
 
 ## What I Worked On
 
-{Bulleted list grouped by project or theme, not by session. Each bullet is 1-2 lines: what was done, not what was discussed. Use active past tense ("shipped", "fixed", "built", "investigated"). Order by significance, not time. 4-8 bullets for a typical day.}
+{Bulleted list grouped by project or theme, not by session. This is the detailed breakdown — each bullet should have enough context to understand what was done, why, and the outcome. Use active past tense ("shipped", "fixed", "built", "investigated"). Order by significance, not time. Multiple bullets per project are fine when distinct workstreams were tackled. 6-12 bullets for a typical day. Cover all projects that appeared in the Day Overview.}
 
-- **{Project or Theme}** — {what was done}
+- **{Project or Theme}** — {what was done, with specific details: versions, APIs, root causes, outcomes}
 - ...
 
 ---
