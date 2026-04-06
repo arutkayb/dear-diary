@@ -45,12 +45,13 @@ Deeper questions:
 
 Surface questions:
 - Did today feel productive? What made it feel that way (or not)?
-- Did you context-switch a lot today? How did that affect your focus?
+- Looking across today's projects, which one moved the needle the most — and was that the one you expected?
 
 Deeper questions:
 - Is there a recurring type of work you keep doing that could be automated or templated?
 - What was the ratio of "building new things" to "fixing/maintaining existing things" — and does that feel right?
 - Did any tool or process slow you down in a way that feels fixable?
+- Was there a moment today where you made a deliberate choice to stop one thing and start another? What drove that?
 
 ---
 
@@ -67,7 +68,7 @@ Deeper questions (best for round 3 or after rich answers in earlier rounds):
 
 | Day shape | Recommended focus |
 |-----------|------------------|
-| Many projects (3+) | Patterns & Workflow → ask about context-switching and prioritization |
+| Many projects (3+) | Accomplishments & Impact → ask what moved the needle most across projects |
 | Single deep project | Learning & Growth → ask about what was discovered or challenged |
 | Bug-heavy day | Challenges & Blockers → ask about root cause insights and system understanding |
 | Feature shipped | Accomplishments & Impact → ask about the "what's done" and who it helps |

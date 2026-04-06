@@ -38,7 +38,7 @@ The reflection file should follow this structure. Each section description expla
 {1-3 bullets. Friction points, blockers, or places where progress was slower than expected. Not complaints — just honest acknowledgment. In auto mode: look for long debug sessions, multiple retries, or rollbacks. In reflection mode: use what the user shared.}
 
 ### Patterns
-{1-3 bullets. Recurring behaviors, workflow observations, or meta-observations about how the day went. E.g., "Context-switched 5 times across projects — only one deep-focus block." These are the "zoom out" observations. In reflection mode: may come from the user's own framing. In auto mode: derive from session timing and project spread.}
+{1-3 bullets. Recurring behaviors, workflow observations, or meta-observations about how the day went. E.g., "Most progress came from short, focused sessions — the 20-min calendar fix yielded more than the 2-hour refactor." or "Third day in a row where tooling work cascaded into product improvements." These are the "zoom out" observations — look for what drove outcomes, not just how time was spread. In reflection mode: may come from the user's own framing. In auto mode: derive from session outcomes and recurring behaviors.}
 
 ---
 

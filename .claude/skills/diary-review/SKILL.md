@@ -5,7 +5,7 @@ argument-hint: [YYYY-MM-DD] [--auto]
 disable-model-invocation: true
 model: opus
 effort: max
-allowed-tools: Read, Write, Glob, Grep, Bash(python3:*), Bash(date:*), Bash(ls:*), Agent
+allowed-tools: Read, Write, Bash(python3:*), Bash(date:*), Bash(ls:*), Agent
 ---
 
 ## Arguments
