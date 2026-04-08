@@ -10,9 +10,10 @@ import os
 import subprocess
 import sys
 from datetime import date, datetime, timedelta, timezone
+from typing import Dict, List, Optional, Set
 
 
-def resolve_date(date_str: str | None) -> date:
+def resolve_date(date_str: Optional[str]) -> date:
     """Return the target date. Defaults to yesterday in host local TZ."""
     if date_str:
         return date.fromisoformat(date_str)
@@ -76,7 +77,7 @@ def parse_args(argv=None):
     return args
 
 
-def get_target_dates(args) -> list[date]:
+def get_target_dates(args) -> List[date]:
     """Return the list of dates to process based on parsed args."""
     if args.from_date:
         start = date.fromisoformat(args.from_date)
@@ -97,7 +98,7 @@ def get_target_dates(args) -> list[date]:
 _DEFAULT_CONFIG = {"git_commits": {"enabled": False, "additional_repos": []}}
 
 
-def load_config(config_path: str | None) -> dict:
+def load_config(config_path: Optional[str]) -> dict:
     """Load config from JSON file. Returns defaults if file is missing or malformed."""
     if config_path is None:
         config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
@@ -111,10 +112,10 @@ def load_config(config_path: str | None) -> dict:
         return _DEFAULT_CONFIG.copy()
 
 
-_git_root_cache: dict[str, str | None] = {}
+_git_root_cache: dict = {}
 
 
-def _git_repo_root(path: str) -> str | None:
+def _git_repo_root(path: str) -> Optional[str]:
     """Return the git repo root for the given path, or None if not in a git repo."""
     if path in _git_root_cache:
         return _git_root_cache[path]
@@ -130,15 +131,15 @@ def _git_repo_root(path: str) -> str | None:
     return root
 
 
-def _collect_cwds(matched_sessions: list[dict]) -> set[str]:
+def _collect_cwds(matched_sessions: List[dict]) -> Set[str]:
     """Return unique cwd values found in the matched session files.
 
     Collects the top 3 most frequent cwds per session to capture
     significant working directories while filtering random directory jumps.
     """
-    cwds: set[str] = set()
+    cwds: Set[str] = set()
     for session_meta in matched_sessions:
-        cwd_counts: dict[str, int] = {}
+        cwd_counts: Dict[str, int] = {}
         try:
             with open(session_meta["file_path"], "r", encoding="utf-8") as f:
                 for line in f:
@@ -159,10 +160,10 @@ def _collect_cwds(matched_sessions: list[dict]) -> set[str]:
     return cwds
 
 
-def discover_repo_paths(matched_sessions: list[dict], additional_repos: list[str]) -> list[str]:
+def discover_repo_paths(matched_sessions: List[dict], additional_repos: List[str]) -> List[str]:
     """Return deduplicated git repo root paths from session cwds and additional_repos config."""
     candidates = list(_collect_cwds(matched_sessions)) + list(additional_repos)
-    roots: set[str] = set()
+    roots: Set[str] = set()
     for path in candidates:
         if _is_temp_path(path):
             continue
@@ -177,7 +178,7 @@ def discover_repo_paths(matched_sessions: list[dict], additional_repos: list[str
     return sorted(roots)
 
 
-def collect_git_commits(repo_paths: list[str], target_date: date, local_tz) -> list[dict]:
+def collect_git_commits(repo_paths: List[str], target_date: date, local_tz) -> List[dict]:
     """Collect commits from the given repos whose author date falls on target_date (local TZ).
 
     Returns flat list of {repo, hash, timestamp, branch, message}.
@@ -190,8 +191,8 @@ def collect_git_commits(repo_paths: list[str], target_date: date, local_tz) -> l
     start_str = day_start.isoformat()
     end_str = day_end.isoformat()
 
-    seen_hashes: set[str] = set()
-    all_commits: list[dict] = []
+    seen_hashes: Set[str] = set()
+    all_commits: List[dict] = []
 
     for repo in repo_paths:
         try:
@@ -252,9 +253,9 @@ def collect_git_commits(repo_paths: list[str], target_date: date, local_tz) -> l
     return all_commits
 
 
-def _group_commits_by_repo(commits: list[dict]) -> list[dict]:
+def _group_commits_by_repo(commits: List[dict]) -> List[dict]:
     """Group flat commit list into per-repo structure."""
-    repo_map: dict[str, list[dict]] = {}
+    repo_map: Dict[str, List[dict]] = {}
     for c in commits:
         repo_map.setdefault(c["repo"], []).append({
             "hash": c["hash"],
@@ -268,7 +269,7 @@ def _group_commits_by_repo(commits: list[dict]) -> list[dict]:
     ]
 
 
-def discover_sessions(source_dir: str) -> list[dict]:
+def discover_sessions(source_dir: str) -> List[dict]:
     """Scan source_dir/projects/*/*.jsonl and return session metadata dicts.
 
     Each entry: {file_path, session_id, project_dir}
@@ -302,7 +303,7 @@ def discover_sessions(source_dir: str) -> list[dict]:
     return sessions
 
 
-def _get_session_last_timestamp(file_path: str) -> datetime | None:
+def _get_session_last_timestamp(file_path: str) -> Optional[datetime]:
     """Return the timestamp of the last message with a timestamp field."""
     last_ts = None
     try:
@@ -327,8 +328,8 @@ def _get_session_last_timestamp(file_path: str) -> datetime | None:
 
 
 def filter_sessions_by_date(
-    sessions: list[dict], target_date: date, local_tz
-) -> list[dict]:
+    sessions: List[dict], target_date: date, local_tz
+) -> List[dict]:
     """Return sessions whose last-activity date (in local TZ) matches target_date."""
     matched = []
     for session in sessions:
@@ -389,7 +390,7 @@ _SKIP_TYPES = frozenset({
 })
 
 
-def _extract_text_blocks(content) -> str | None:
+def _extract_text_blocks(content) -> Optional[str]:
     """Extract and join text from content (str or list of blocks). Returns None if no text."""
     if isinstance(content, str):
         text = content.strip()
@@ -461,7 +462,7 @@ def extract_messages(session_file: str):
             }
 
 
-def assemble_output(target_date: date, matched_sessions: list[dict]) -> dict:
+def assemble_output(target_date: date, matched_sessions: List[dict]) -> dict:
     """Extract messages from matched sessions and assemble the output JSON structure.
 
     Groups sessions by project (using cwd from messages). Each session includes
@@ -470,7 +471,7 @@ def assemble_output(target_date: date, matched_sessions: list[dict]) -> dict:
     now = datetime.now().astimezone()
 
     # project_path -> list of session dicts
-    projects_map: dict[str, list[dict]] = {}
+    projects_map: Dict[str, List[dict]] = {}
 
     total_sessions = 0
     total_messages = 0
@@ -488,7 +489,7 @@ def assemble_output(target_date: date, matched_sessions: list[dict]) -> dict:
             continue
 
         # Derive project path from most frequent cwd, fallback to directory name
-        cwd_counts: dict[str, int] = {}
+        cwd_counts: Dict[str, int] = {}
         for m in messages:
             c = m.get("cwd")
             if c:
