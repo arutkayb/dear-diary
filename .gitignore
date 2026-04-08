@@ -1,6 +1,8 @@
 # Generated diary data
 output/
 reflections/
+content/
+diaries/
 
 # Python
 __pycache__/
